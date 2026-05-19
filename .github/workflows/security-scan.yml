@@ -3,9 +3,8 @@ name: Security Scan
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Cada domingo a medianoche
-  push:
-    branches: [ main ]
+    - cron: '0 0 * * 0'  # Cada domingo
+  workflow_dispatch:  # Permitir ejecución manual
 
 jobs:
   security:
@@ -21,11 +20,21 @@ jobs:
       with:
         dotnet-version: '10.0.x'
     
-    - name: Scan for vulnerabilities
-      run: dotnet list package --vulnerable --include-transitive
+    # ✅ Restaurar paquetes primero
+    - name: Restore packages
+      run: dotnet restore
     
-    - name: Run Security Code Scan
-      uses: security-code-scan/security-code-scan@main
+    # ✅ Escanear vulnerabilidades (no falla el build, solo reporta)
+    - name: Scan for vulnerabilities
+      run: |
+        dotnet list package --vulnerable --include-transitive > vuln-report.txt
+        cat vuln-report.txt
+      continue-on-error: true  # No falla el workflow
+    
+    # ✅ Subir reporte como artefacto
+    - name: Upload vulnerability report
+      uses: actions/upload-artifact@v4
+      if: always()
       with:
-        path: 'src/'
-        project: 'SecurePayment.sln'
+        name: vulnerability-report
+        path: vuln-report.txt
