@@ -1,0 +1,48 @@
+# .github/workflows/build.yml
+name: Build & Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build solution
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Run Domain Unit Tests
+      run: dotnet test tests/Domain.UnitTests/Domain.UnitTests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=domain-tests.trx"
+    
+    - name: Run Application Unit Tests
+      run: dotnet test tests/Application.UnitTests/Application.UnitTests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=application-tests.trx"
+    
+    - name: Run Integration Tests
+      run: dotnet test tests/IntegrationTests/IntegrationTests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=integration-tests.trx"
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: '**/*.trx'
+        if-no-files-found: error

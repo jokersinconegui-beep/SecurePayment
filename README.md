@@ -1,5 +1,11 @@
 # 💳 SecurePaymentGateway
 
+<!-- Badges de CI/CD -->
+[![Build & Test](https://github.com/jokersinconegui-beep/SecurePaymentGateway/actions/workflows/build.yml/badge.svg)](https://github.com/jokersinconegui-beep/SecurePaymentGateway/actions/workflows/build.yml)
+[![Security Scan](https://github.com/jokersinconegui-beep/SecurePaymentGateway/actions/workflows/security-scan.yml/badge.svg)](https://github.com/jokersinconegui-beep/SecurePaymentGateway/actions/workflows/security-scan.yml)
+[![Code Quality](https://github.com/jokersinconegui-beep/SecurePaymentGateway/actions/workflows/code-quality.yml/badge.svg)](https://github.com/jokersinconegui-beep/SecurePaymentGateway/actions/workflows/code-quality.yml)
+[![Performance](https://github.com/jokersinconegui-beep/SecurePaymentGateway/actions/workflows/performance.yml/badge.svg)](https://github.com/jokersinconegui-beep/SecurePaymentGateway/actions/workflows/performance.yml)
+
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![C#](https://img.shields.io/badge/C%23-12.0-239120?logo=csharp)](https://docs.microsoft.com/en-us/dotnet/csharp/)
 [![Tests](https://img.shields.io/badge/Tests-43%20passing-brightgreen)](./tests)
