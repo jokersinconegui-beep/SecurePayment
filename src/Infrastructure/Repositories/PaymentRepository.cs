@@ -27,18 +27,19 @@ public class PaymentRepository : IPaymentRepository
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
     
+    // ✅ Agregar este método
     public async Task<IEnumerable<Transaction>> GetByMerchantAsync(string merchantId, CancellationToken cancellationToken)
     {
-        // Nota: MerchantId aún no está en Transaction. Lo agregaremos después.
         return await _context.Transactions
-            .Where(t => t.Status == TransactionStatus.Approved)
+            .Where(t => t.MerchantId == merchantId)
+            .OrderByDescending(t => t.CreatedAt)
             .ToListAsync(cancellationToken);
     }
     
+    // ✅ Agregar este método
     public async Task<bool> ExistsByKeyAsync(string idempotencyKey, CancellationToken cancellationToken)
     {
-        // Nota: IdempotencyKey aún no está en Transaction. Lo agregaremos después.
         return await _context.Transactions
-            .AnyAsync(t => t.Id.ToString() == idempotencyKey, cancellationToken);
+            .AnyAsync(t => t.IdempotencyKey == idempotencyKey, cancellationToken);
     }
 }
