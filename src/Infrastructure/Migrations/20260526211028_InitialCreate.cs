@@ -12,6 +12,25 @@ namespace Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "Merchants",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    MerchantId = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Email = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    PasswordHash = table.Column<string>(type: "TEXT", nullable: false),
+                    ApiKey = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    LastLoginAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Merchants", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Transactions",
                 columns: table => new
                 {
@@ -28,6 +47,24 @@ namespace Infrastructure.Migrations
                 {
                     table.PrimaryKey("PK_Transactions", x => x.Id);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Merchants_ApiKey",
+                table: "Merchants",
+                column: "ApiKey",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Merchants_Email",
+                table: "Merchants",
+                column: "Email",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Merchants_MerchantId",
+                table: "Merchants",
+                column: "MerchantId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Transactions_CardNumber",
@@ -48,6 +85,9 @@ namespace Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "Merchants");
+
             migrationBuilder.DropTable(
                 name: "Transactions");
         }

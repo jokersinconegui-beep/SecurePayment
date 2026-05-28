@@ -1,4 +1,6 @@
-﻿namespace Application.UnitTests;
+﻿using Xunit;
+
+namespace Application.UnitTests;
 
 public class UnitTest1
 {
