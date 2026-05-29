@@ -7,4 +7,8 @@ public interface IPaymentRepository
 {
     Task SaveAsync(Transaction transaction, CancellationToken cancellationToken);
     Task<Transaction?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+    
+    // ✅ Agregar estos métodos
+    Task<IEnumerable<Transaction>> GetByMerchantAsync(string merchantId, CancellationToken cancellationToken);
+    Task<bool> ExistsByKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
 }
