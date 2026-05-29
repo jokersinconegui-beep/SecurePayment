@@ -3,10 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Application.Common.Interfaces;
-using Infrastructure.Persistence;
-using Infrastructure.Repositories;
-using Infrastructure.Services;
 using Infrastructure.Services.Persistence;
+using Infrastructure.Repositories;
 
 namespace Infrastructure;
 
@@ -16,11 +14,17 @@ public static class DependencyInjection
 
 public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
 {
+    services.AddSingleton<AuditInterceptor>();
     // Base de datos
     var connectionString = configuration.GetConnectionString("DefaultConnection");
-    services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlite(connectionString));
     
+    
+    // Base de datos
+    services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
+    {
+        options.UseSqlite(connectionString);
+        options.AddInterceptors(serviceProvider.GetRequiredService<AuditInterceptor>());
+    });
     // // Redis Cache
     // var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
     // services.AddStackExchangeRedisCache(options =>

@@ -4,22 +4,32 @@ using Infrastructure;
 using WebApi.Middlewares;
 
 // src/WebApi/Program.cs (agregar health checks)
-
+using Serilog;
+using Serilog.Events;
 using WebApi.HealthChecks;
 using StackExchange.Redis;
-using Infrastructure.Services.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Application.Common.Interfaces;
-using Infrastructure.Services;
+using Infrastructure.Services.Persistence;
 using Microsoft.OpenApi.Models;
-
+using Infrastructure.Persistence;
+using Infrastructure.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Agregar capas
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+// Configurar Serilog
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+Log.Information("=== SERILOG IS WORKING ===");
 // Configurar autenticación JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "SecurePaymentGatewaySuperSecretKey2026_AtLeast32Chars";
 var key = Encoding.UTF8.GetBytes(jwtKey);
@@ -52,6 +62,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+
+builder.Services.AddControllers();
+builder.Services.AddSwaggerGen();
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
@@ -60,7 +73,6 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 // builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 //     ConnectionMultiplexer.Connect(redisConnectionString));
 
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 // src/WebApi/Program.cs (mejorar Swagger)
 
@@ -113,6 +125,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0}ms";
+    options.GetLevel = (httpContext, elapsed, ex) => 
+        httpContext.Response.StatusCode >= 500 ? LogEventLevel.Error : LogEventLevel.Information;
+});
 
 app.UseMiddleware<RateLimitingMiddleware>();
 app.UseHttpsRedirection();

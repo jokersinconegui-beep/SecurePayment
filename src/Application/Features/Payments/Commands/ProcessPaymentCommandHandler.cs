@@ -23,99 +23,125 @@ public class ProcessPaymentCommandHandler : IRequestHandler<ProcessPaymentComman
 
     public async Task<PaymentResponse> Handle(ProcessPaymentCommand request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Processing payment for merchant: {MerchantId}, Amount: {Amount} {Currency}",
-            request.MerchantId, request.Amount, request.Currency);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-        // 1. Validar CardNumber
-        var cardResult = CardNumber.Create(request.CardNumber);
-        if (cardResult.IsFailure)
+        try
         {
+            // Log informativo con contexto
+            _logger.LogInformation("Processing payment for merchant {MerchantId}, Amount: {Amount} {Currency}, IdempotencyKey: {IdempotencyKey}",
+                request.MerchantId, request.Amount, request.Currency, request.IdempotencyKey);
+
+            // 1. Validar CardNumber
+            var cardResult = CardNumber.Create(request.CardNumber);
+            if (cardResult.IsFailure)
+            {
+                _logger.LogWarning("Card validation failed for merchant {MerchantId}: {Error}",
+                    request.MerchantId, cardResult.Error);
+                return CreateFailedResponse(cardResult.Error);
+            }
+
+            _logger.LogDebug("Card validated successfully for merchant {MerchantId}, Brand: {Brand}",
+                request.MerchantId, cardResult.Value.GetBrand());
+
+            // 2. Validar CVV
+            var cvvResult = Cvv.Create(request.Cvv);
+            if (cvvResult.IsFailure)
+            {
+                _logger.LogWarning("CVV validation failed for merchant {MerchantId}: {Error}",
+                    request.MerchantId, cvvResult.Error);
+                return CreateFailedResponse(cvvResult.Error);
+            }
+
+            // 3. Validar CVV contra marca de tarjeta
+            var brandValidation = cvvResult.Value.ValidateForBrand(cardResult.Value.GetBrand());
+            if (brandValidation.IsFailure)
+            {
+                _logger.LogWarning("Brand validation failed for merchant {MerchantId}: {Error}",
+                    request.MerchantId, brandValidation.Error);
+                return CreateFailedResponse(brandValidation.Error);
+            }
+
+            // 4. Validar Money
+            var moneyResult = Money.Create(request.Amount, request.Currency);
+            if (moneyResult.IsFailure)
+            {
+                _logger.LogWarning("Money validation failed for merchant {MerchantId}: {Error}",
+                    request.MerchantId, moneyResult.Error);
+                return CreateFailedResponse(moneyResult.Error);
+            }
+
+            // 5. Verificar idempotencia (evitar dobles cargos)
+            var exists = await _paymentRepository.ExistsByKeyAsync(request.IdempotencyKey, cancellationToken);
+            if (exists)
+            {
+                _logger.LogWarning("Duplicate payment attempt detected for merchant {MerchantId}, IdempotencyKey: {IdempotencyKey}",
+                    request.MerchantId, request.IdempotencyKey);
+                return CreateFailedResponse("Duplicate transaction detected. Please check your previous request.");
+            }
+
+            // 6. Crear transacción
+            var transactionResult = Transaction.Create(
+                cardResult.Value,
+                moneyResult.Value,
+                cvvResult.Value,
+                request.MerchantId,
+                request.IdempotencyKey
+            );
+
+            if (transactionResult.IsFailure)
+            {
+                _logger.LogError("Transaction creation failed for merchant {MerchantId}: {Error}",
+                    request.MerchantId, transactionResult.Error);
+                return CreateFailedResponse(transactionResult.Error);
+            }
+
+            // 7. Aprobar transacción (simular procesamiento externo)
+            var approval = transactionResult.Value.Approve();
+            if (approval.IsFailure)
+            {
+                _logger.LogError("Payment gateway rejected transaction for merchant {MerchantId}: {Error}",
+                    request.MerchantId, approval.Error);
+                return CreateFailedResponse(approval.Error);
+            }
+
+            // 8. Guardar transacción en base de datos
+            await _paymentRepository.SaveAsync(transactionResult.Value, cancellationToken);
+
+            stopwatch.Stop();
+            _logger.LogInformation("Payment approved for merchant {MerchantId}, TransactionId: {TransactionId}, Amount: {Amount}, Time: {Elapsed}ms",
+                request.MerchantId, transactionResult.Value.Id, request.Amount, stopwatch.ElapsedMilliseconds);
+
             return new PaymentResponse
             {
-                Status = "Failed",
-                Message = cardResult.Error,
-                Timestamp = DateTime.UtcNow
+                TransactionId = transactionResult.Value.Id,
+                Status = "Approved",
+                Message = "Payment processed successfully",
+                Timestamp = DateTime.UtcNow,
+                ApprovalCode = GenerateApprovalCode()
             };
         }
-
-        // 2. Validar CVV
-        var cvvResult = Cvv.Create(request.Cvv);
-        if (cvvResult.IsFailure)
+        catch (Exception ex)
         {
-            return new PaymentResponse
-            {
-                Status = "Failed",
-                Message = cvvResult.Error,
-                Timestamp = DateTime.UtcNow
-            };
+            stopwatch.Stop();
+            _logger.LogError(ex, "Unexpected error processing payment for merchant {MerchantId}, Amount: {Amount}, Time: {Elapsed}ms",
+                request.MerchantId, request.Amount, stopwatch.ElapsedMilliseconds);
+
+            return CreateFailedResponse("An unexpected error occurred. Please try again later.");
         }
+    }
 
-        // 3. Validar CVV contra marca de tarjeta
-        var brandValidation = cvvResult.Value.ValidateForBrand(cardResult.Value.GetBrand());
-        if (brandValidation.IsFailure)
-        {
-            return new PaymentResponse
-            {
-                Status = "Failed",
-                Message = brandValidation.Error,
-                Timestamp = DateTime.UtcNow
-            };
-        }
-
-        // 4. Validar Money
-        var moneyResult = Money.Create(request.Amount, request.Currency);
-        if (moneyResult.IsFailure)
-        {
-            return new PaymentResponse
-            {
-                Status = "Failed",
-                Message = moneyResult.Error,
-                Timestamp = DateTime.UtcNow
-            };
-        }
-
-        // 5. Crear transacción
-        var transactionResult = Transaction.Create(
-        cardResult.Value,
-        moneyResult.Value,
-        cvvResult.Value,
-        request.MerchantId,
-        request.IdempotencyKey
-    );
-        if (transactionResult.IsFailure)
-        {
-            return new PaymentResponse
-            {
-                Status = "Failed",
-                Message = transactionResult.Error,
-                Timestamp = DateTime.UtcNow
-            };
-        }
-
-        // 6. Aprobar transacción (simular procesamiento)
-        var approval = transactionResult.Value.Approve();
-        if (approval.IsFailure)
-        {
-            return new PaymentResponse
-            {
-                Status = "Failed",
-                Message = approval.Error,
-                Timestamp = DateTime.UtcNow
-            };
-        }
-
-        // 7. Guardar transacción (simulado)
-        await _paymentRepository.SaveAsync(transactionResult.Value, cancellationToken);
-
-        _logger.LogInformation("Payment approved for transaction: {TransactionId}", transactionResult.Value.Id);
-
+    private static PaymentResponse CreateFailedResponse(string message)
+    {
         return new PaymentResponse
         {
-            TransactionId = transactionResult.Value.Id,
-            Status = "Approved",
-            Message = "Payment processed successfully",
-            Timestamp = DateTime.UtcNow,
-            ApprovalCode = Guid.NewGuid().ToString()[..8].ToUpper()
+            Status = "Failed",
+            Message = message,
+            Timestamp = DateTime.UtcNow
         };
+    }
+
+    private static string GenerateApprovalCode()
+    {
+        return Guid.NewGuid().ToString()[..8].ToUpper();
     }
 }
