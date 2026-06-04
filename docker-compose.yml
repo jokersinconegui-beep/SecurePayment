@@ -1,0 +1,41 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: securepayment-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - securepayment-network
+    volumes:
+      - redis-data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: src/WebApi/Dockerfile
+    container_name: securepayment-api
+    ports:
+      - "5077:80"
+    depends_on:
+      - redis
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/SecurePayment.db
+      - ConnectionStrings__Redis=redis:6379
+    restart: unless-stopped
+    networks:
+      - securepayment-network
+    volumes:
+      - sqlite-data:/app/data
+
+networks:
+  securepayment-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  sqlite-data:

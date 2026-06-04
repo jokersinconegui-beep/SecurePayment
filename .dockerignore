@@ -1,0 +1,17 @@
+# .dockerignore
+bin/
+obj/
+logs/
+*.db
+*.db-journal
+*.user
+*.suo
+.vs/
+.vscode/
+.git/
+.gitignore
+README.md
+docker-compose*.yml
+Dockerfile
+*.md
+*.log
