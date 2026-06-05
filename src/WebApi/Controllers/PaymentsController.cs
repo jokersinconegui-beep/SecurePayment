@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Application.DTOs;
+using Application.DTOs.Transactions;
 using Application.Features.Payments.Commands;
 using Application.Features.Payments.Queries;
 
@@ -14,9 +15,8 @@ namespace WebApi.Controllers;
 [Authorize]
 public class PaymentsController : ControllerBase
 {
-    private readonly IMediator _mediator;  // ✅ Campo declarado
+    private readonly IMediator _mediator;
     
-    // ✅ Constructor que recibe e inicializa _mediator
     public PaymentsController(IMediator mediator)
     {
         _mediator = mediator;
@@ -42,7 +42,7 @@ public class PaymentsController : ControllerBase
             IdempotencyKey = request.IdempotencyKey
         };
         
-        var result = await _mediator.Send(command);  // ✅ Ahora funciona
+        var result = await _mediator.Send(command);
         return Ok(result);
     }
     
@@ -51,11 +51,33 @@ public class PaymentsController : ControllerBase
     public async Task<ActionResult<PaymentResponse>> GetTransactionStatus(Guid id)
     {
         var query = new GetTransactionStatusQuery { TransactionId = id };
-        var result = await _mediator.Send(query);  // ✅ Ahora funciona
+        var result = await _mediator.Send(query);
         
         if (result == null)
             return NotFound();
         
+        return Ok(result);
+    }
+    
+    [HttpGet("transactions")]
+    public async Task<ActionResult<TransactionListResponse>> GetMyTransactions(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null)
+    {
+        var query = new GetTransactionsQuery
+        {
+            MerchantId = MerchantId,
+            Page = page,
+            PageSize = pageSize,
+            Status = status,
+            FromDate = fromDate,
+            ToDate = toDate
+        };
+        
+        var result = await _mediator.Send(query);
         return Ok(result);
     }
 }

@@ -9,7 +9,6 @@ using Application.Common.Interfaces;
 using Application.DTOs.Auth;
 using Domain.Entities;
 using Infrastructure.Persistence;
-using Infrastructure.Services.Persistence;
 
 namespace Infrastructure.Services;
 

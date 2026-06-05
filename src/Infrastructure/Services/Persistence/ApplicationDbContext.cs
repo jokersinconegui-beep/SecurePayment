@@ -2,32 +2,27 @@
 using Microsoft.EntityFrameworkCore;
 using Domain.Entities;
 using System.Reflection;
+using Application.Common.Interfaces;
 
-namespace Infrastructure.Services.Persistence;
+namespace Infrastructure.Persistence;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
-    private readonly AuditInterceptor _auditInterceptor;
-    
-    public ApplicationDbContext(
-        DbContextOptions<ApplicationDbContext> options,
-        AuditInterceptor auditInterceptor) : base(options)
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {
-        _auditInterceptor = auditInterceptor;
-    }
-    
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        // ✅ Usar el interceptor inyectado
-        if (_auditInterceptor != null)
-        {
-            optionsBuilder.AddInterceptors(_auditInterceptor);
-        }
-        base.OnConfiguring(optionsBuilder);
     }
     
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Merchant> Merchants { get; set; }
+    
+    // ✅ Implementación explícita de IQueryable para la interfaz
+    IQueryable<Transaction> IApplicationDbContext.Transactions => Transactions;
+    IQueryable<Merchant> IApplicationDbContext.Merchants => Merchants;
+    
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        return await base.SaveChangesAsync(cancellationToken);
+    }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
