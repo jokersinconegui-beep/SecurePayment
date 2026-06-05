@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Application.Common.Interfaces;
-using Infrastructure.Services.Persistence;
 using Infrastructure.Repositories;
+using Infrastructure.Persistence;
 
 namespace Infrastructure;
 
@@ -25,6 +25,8 @@ public static IServiceCollection AddInfrastructure(this IServiceCollection servi
         options.UseSqlite(connectionString);
         options.AddInterceptors(serviceProvider.GetRequiredService<AuditInterceptor>());
     });
+
+    
     // // Redis Cache
     // var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
     // services.AddStackExchangeRedisCache(options =>
@@ -44,6 +46,10 @@ public static IServiceCollection AddInfrastructure(this IServiceCollection servi
     //     return new CachedPaymentRepository(decorated, cache);
     // });
     services.AddScoped<IPaymentRepository, PaymentRepository>();
+    // src/Infrastructure/DependencyInjection.cs
+// Agregar el registro
+services.AddScoped<IApplicationDbContext>(provider => 
+    provider.GetRequiredService<ApplicationDbContext>());
     return services;
 }
 }

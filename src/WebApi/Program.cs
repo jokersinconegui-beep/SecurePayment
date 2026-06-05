@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Application.Common.Interfaces;
-using Infrastructure.Services.Persistence;
 using Microsoft.OpenApi.Models;
 using Infrastructure.Persistence;
 using Infrastructure.Services;

@@ -1,5 +1,6 @@
 // src/Infrastructure/Repositories/CachedPaymentRepository.cs
 using Application.Common.Interfaces;
+using Application.DTOs.Transactions;
 using Domain.Entities;
 
 namespace Infrastructure.Repositories;
@@ -56,5 +57,10 @@ public class CachedPaymentRepository : IPaymentRepository
         {
             return await _decorated.ExistsByKeyAsync(idempotencyKey, cancellationToken);
         }, TimeSpan.FromHours(24), cancellationToken);
+    }
+
+    public Task<TransactionListResponse> GetTransactionsByMerchantAsync(string merchantId, int page, int pageSize, string? status, DateTime? fromDate, DateTime? toDate, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
     }
 }
