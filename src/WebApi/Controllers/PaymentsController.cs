@@ -3,10 +3,11 @@ using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Application.DTOs;
-using Application.DTOs.Transactions;
 using Application.Features.Payments.Commands;
 using Application.Features.Payments.Queries;
+using Application.DTOs.Response;   // ← Para PaymentResponse
+using Application.DTOs.Transactions;
+using Application.DTOs.Request;  // ← Para TransactionListResponse
 
 namespace WebApi.Controllers;
 

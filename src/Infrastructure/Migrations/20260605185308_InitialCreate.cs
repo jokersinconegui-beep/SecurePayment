@@ -31,6 +31,23 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "RefreshTokens",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Token = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
+                    MerchantId = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    IsRevoked = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    RevokedByIp = table.Column<string>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RefreshTokens", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Transactions",
                 columns: table => new
                 {
@@ -67,6 +84,17 @@ namespace Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_MerchantId",
+                table: "RefreshTokens",
+                column: "MerchantId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_Token",
+                table: "RefreshTokens",
+                column: "Token",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Transactions_CardNumber",
                 table: "Transactions",
                 column: "CardNumber");
@@ -87,6 +115,9 @@ namespace Infrastructure.Migrations
         {
             migrationBuilder.DropTable(
                 name: "Merchants");
+
+            migrationBuilder.DropTable(
+                name: "RefreshTokens");
 
             migrationBuilder.DropTable(
                 name: "Transactions");

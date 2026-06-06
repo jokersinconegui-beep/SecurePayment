@@ -1,10 +1,10 @@
 // src/Application/Features/Payments/Commands/ProcessPaymentCommandHandler.cs
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Application.DTOs;
 using Domain.ValueObjects;
 using Domain.Entities;
 using Application.Common.Interfaces;
+using Application.DTOs.Response;
 
 namespace Application.Features.Payments.Commands;
 
