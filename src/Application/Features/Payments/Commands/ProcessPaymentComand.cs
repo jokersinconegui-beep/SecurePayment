@@ -1,6 +1,7 @@
 // src/Application/Features/Payments/Commands/ProcessPaymentCommand.cs
 using MediatR;
 using Application.DTOs;
+using Application.DTOs.Response;
 
 namespace Application.Features.Payments.Commands;
 

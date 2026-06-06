@@ -14,6 +14,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Merchant> Merchants { get; set; }
+
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
     
     // ✅ Implementación explícita de IQueryable para la interfaz
     IQueryable<Transaction> IApplicationDbContext.Transactions => Transactions;

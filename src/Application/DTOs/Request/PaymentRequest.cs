@@ -1,5 +1,5 @@
 // src/Application/DTOs/PaymentRequest.cs
-namespace Application.DTOs;
+namespace Application.DTOs.Request;
 
 public class PaymentRequest
 {

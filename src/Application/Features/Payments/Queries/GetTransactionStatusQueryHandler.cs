@@ -2,6 +2,7 @@
 using MediatR;
 using Application.Common.Interfaces;
 using Application.DTOs;
+using Application.DTOs.Response;
 
 namespace Application.Features.Payments.Queries;
 
