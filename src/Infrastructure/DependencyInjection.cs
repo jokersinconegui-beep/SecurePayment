@@ -1,55 +1,48 @@
-// src/Infrastructure/DependencyInjection.cs (actualizado)
+// src/Infrastructure/DependencyInjection.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Application.Common.Interfaces;
-using Infrastructure.Repositories;
 using Infrastructure.Persistence;
+using Infrastructure.Repositories;
+using Infrastructure.Services;
+using Prometheus;
+using Microsoft.AspNetCore.Builder;
 
 namespace Infrastructure;
 
 public static class DependencyInjection
 {
-   // src/Infrastructure/DependencyInjection.cs (actualizar la parte de repositorios)
-
-public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
-{
-    services.AddSingleton<AuditInterceptor>();
-    // Base de datos
-    var connectionString = configuration.GetConnectionString("DefaultConnection");
-    
-    
-    // Base de datos
-    services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        options.UseSqlite(connectionString);
-        options.AddInterceptors(serviceProvider.GetRequiredService<AuditInterceptor>());
-    });
-
+        // Base de datos
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        services.AddDbContext<ApplicationDbContext>(options =>
+            options.UseSqlite(connectionString));
+        
+        // Repositorios
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<IAuthService, AuthService>();
+        
+        return services;
+    }
     
-    // // Redis Cache
-    // var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
-    // services.AddStackExchangeRedisCache(options =>
-    // {
-    //     options.Configuration = redisConnectionString;
-    //     options.InstanceName = "SecurePayment_";
-    // });
+    // ✅ Renombrado a AddPrometheusMetrics para evitar conflicto
+    public static IServiceCollection AddPrometheusMetrics(this IServiceCollection services)
+    {
+        // Registrar MetricsService
+        services.AddSingleton<IMetricsService, MetricsService>();
+        
+        return services;
+    }
     
-    // services.AddScoped<ICacheService, RedisCacheService>();
-    
-    // Repositorio con decorador de caché (decorator pattern)
-    // services.AddScoped<PaymentRepository>();
-    // services.AddScoped<IPaymentRepository>(provider =>
-    // {
-    //     var decorated = provider.GetRequiredService<PaymentRepository>();
-    //     var cache = provider.GetRequiredService<ICacheService>();
-    //     return new CachedPaymentRepository(decorated, cache);
-    // });
-    services.AddScoped<IPaymentRepository, PaymentRepository>();
-    // src/Infrastructure/DependencyInjection.cs
-// Agregar el registro
-services.AddScoped<IApplicationDbContext>(provider => 
-    provider.GetRequiredService<ApplicationDbContext>());
-    return services;
-}
+    // ✅ Renombrado a UsePrometheusMetrics para evitar conflicto
+    public static IApplicationBuilder UsePrometheusMetrics(this IApplicationBuilder app)
+    {
+        // Configurar Prometheus
+        app.UseHttpMetrics();   // Métricas automáticas de requests HTTP
+        app.UseMetricServer();  // Endpoint /metrics
+        
+        return app;
+    }
 }

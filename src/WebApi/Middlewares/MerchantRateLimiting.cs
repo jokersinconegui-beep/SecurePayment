@@ -1,27 +1,25 @@
 // src/WebApi/Middlewares/MerchantRateLimitingMiddleware.cs
 using System.Security.Claims;
-using System.Collections.Concurrent;
 using WebApi.RateLimiters;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Application.Common.Interfaces;
 
 namespace WebApi.Middlewares;
 
-public class MerchantRateLimitingMiddleware
+public class MerchantRateLimitingMiddleware(
+    RequestDelegate next,
+    ILogger<MerchantRateLimitingMiddleware> logger,
+    IMetricsService metrics)
 {
-    private readonly RequestDelegate _next;
-    private readonly ILogger<MerchantRateLimitingMiddleware> _logger;
+    private readonly RequestDelegate _next = next;
+    private readonly ILogger<MerchantRateLimitingMiddleware> _logger = logger;
+    private readonly IMetricsService _metrics = metrics;
     private static readonly MerchantRateLimiter _rateLimiter = new();
-    
-    public MerchantRateLimitingMiddleware(RequestDelegate next, ILogger<MerchantRateLimitingMiddleware> logger)
-    {
-        _next = next;
-        _logger = logger;
-    }
-    
+
     public async Task InvokeAsync(HttpContext context, ApplicationDbContext dbContext)
     {
-        // ✅ CORREGIDO: Extraer MerchantId correctamente
+        // Extraer MerchantId correctamente
         var merchantId = context.User.Claims.FirstOrDefault(c => c.Type == "MerchantId")?.Value;
         
         if (string.IsNullOrEmpty(merchantId))
@@ -55,6 +53,9 @@ public class MerchantRateLimitingMiddleware
         // Verificar rate limit
         if (!await _rateLimiter.IsAllowedAsync(merchantId, rateLimit))
         {
+            // ✅ Registrar métrica de rate limit hit
+            _metrics.RecordRateLimitHit(merchantId, merchant.Plan.ToString());
+            
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
             context.Response.Headers.RetryAfter = "60";
             context.Response.Headers["X-RateLimit-Limit"] = rateLimit.ToString();
