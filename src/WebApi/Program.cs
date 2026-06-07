@@ -130,12 +130,10 @@ app.UseSerilogRequestLogging(options =>
     options.GetLevel = (httpContext, elapsed, ex) => 
         httpContext.Response.StatusCode >= 500 ? LogEventLevel.Error : LogEventLevel.Information;
 });
-
-app.UseMiddleware<RateLimitingMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseAuthorization();
+app.UseMiddleware<MerchantRateLimitingMiddleware>();
 app.MapControllers();
 app.MapHealthChecks("/health");
 

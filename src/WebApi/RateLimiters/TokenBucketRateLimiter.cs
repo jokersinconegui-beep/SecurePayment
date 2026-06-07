@@ -15,6 +15,8 @@ public class TokenBucketRateLimiter
         _maxTokens = maxTokens;
         _currentTokens = maxTokens;
         _lastRefill = DateTime.UtcNow;
+        
+        Console.WriteLine($"🪣 TokenBucket created: {maxTokens} tokens, {tokensPerSecond}/sec");
     }
     
     public async Task<bool> TryConsumeAsync(int tokens = 1)
@@ -22,10 +24,8 @@ public class TokenBucketRateLimiter
         await _semaphore.WaitAsync();
         try
         {
-            // Primero recargar tokens basado en el tiempo transcurrido
             RefillTokens();
             
-            // Verificar si hay suficientes tokens
             if (_currentTokens >= tokens)
             {
                 _currentTokens -= tokens;
@@ -44,30 +44,12 @@ public class TokenBucketRateLimiter
     {
         var now = DateTime.UtcNow;
         var timePassed = (now - _lastRefill).TotalSeconds;
+        var tokensToAdd = timePassed * _tokensPerSecond;
         
-        if (timePassed > 0)
+        if (tokensToAdd > 0)
         {
-            var tokensToAdd = timePassed * _tokensPerSecond;
             _currentTokens = Math.Min(_maxTokens, _currentTokens + tokensToAdd);
             _lastRefill = now;
-        }
-    }
-    
-    public async Task<double> GetTimeUntilNextTokenAsync()
-    {
-        await _semaphore.WaitAsync();
-        try
-        {
-            RefillTokens();
-            
-            if (_currentTokens >= 1)
-                return 0;
-            
-            return (1 - _currentTokens) / _tokensPerSecond;
-        }
-        finally
-        {
-            _semaphore.Release();
         }
     }
     
@@ -78,20 +60,6 @@ public class TokenBucketRateLimiter
         {
             RefillTokens();
             return (int)Math.Floor(_currentTokens);
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
-    }
-    
-    public async Task ResetAsync()
-    {
-        await _semaphore.WaitAsync();
-        try
-        {
-            _currentTokens = _maxTokens;
-            _lastRefill = DateTime.UtcNow;
         }
         finally
         {
