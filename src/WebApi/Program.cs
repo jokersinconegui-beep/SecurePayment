@@ -15,6 +15,7 @@ using Application.Common.Interfaces;
 using Microsoft.OpenApi.Models;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
+using WebApi.RateLimiters;
 var builder = WebApplication.CreateBuilder(args);
 
 // Agregar capas
@@ -63,6 +64,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 
 builder.Services.AddControllers();
+builder.Services.AddSingleton<MerchantRateLimiter>();
 builder.Services.AddSwaggerGen();
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<IAuthService, AuthService>();

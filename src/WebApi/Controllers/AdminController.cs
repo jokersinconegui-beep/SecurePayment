@@ -4,19 +4,22 @@ using Microsoft.AspNetCore.Mvc;
 using Infrastructure.Persistence;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using WebApi.RateLimiters;
 
 namespace WebApi.Controllers;
 
 [ApiController]
 [Route("api/admin")]
-[Authorize]  // Solo administradores
+[Authorize]  // Requiere autenticación
 public class AdminController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly MerchantRateLimiter _rateLimiter;
     
-    public AdminController(ApplicationDbContext context)
+    public AdminController(ApplicationDbContext context, MerchantRateLimiter rateLimiter)
     {
         _context = context;
+        _rateLimiter = rateLimiter;
     }
     
     [HttpPut("merchants/{merchantId}/plan")]
@@ -28,16 +31,22 @@ public class AdminController : ControllerBase
         if (merchant == null)
             return NotFound(new { message = "Merchant not found" });
         
-        if (request.Plan == "Premium")
+        // Actualizar plan
+        if (request.Plan?.ToLower() == "premium")
             merchant.UpgradeToPremium();
         else
             merchant.DowngradeToBasic();
         
         await _context.SaveChangesAsync();
         
-        return Ok(new { 
+        // ✅ REFRESCAR CACHÉ DEL RATE LIMITER
+        _rateLimiter.RefreshLimiter(merchantId);
+        
+        return Ok(new 
+        { 
             message = $"Merchant {merchantId} plan updated to {merchant.Plan}",
-            rateLimit = merchant.GetRateLimit()
+            rateLimit = merchant.GetRateLimit(),
+            plan = merchant.Plan.ToString()
         });
     }
     
@@ -61,5 +70,5 @@ public class AdminController : ControllerBase
 
 public class UpdatePlanRequest
 {
-    public string Plan { get; set; } = string.Empty; // "Basic" o "Premium"
+    public string Plan { get; set; } = string.Empty;
 }
