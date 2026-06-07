@@ -3,6 +3,13 @@ using Domain.Common;
 
 namespace Domain.Entities;
 
+public enum MerchantPlan
+{
+    Basic,      // 100 requests por minuto
+    Premium     // 1000 requests por minuto
+}
+
+
 public class Merchant
 {
     public Guid Id { get; private set; }
@@ -27,6 +34,28 @@ public class Merchant
         ApiKey = GenerateApiKey();
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
+    }
+
+    public MerchantPlan Plan { get; private set; } = MerchantPlan.Basic;
+    
+    public int GetRateLimit()
+    {
+        return Plan switch
+        {
+            MerchantPlan.Basic => 100,
+            MerchantPlan.Premium => 1000,
+            _ => 100
+        };
+    }
+    
+    public void UpgradeToPremium()
+    {
+        Plan = MerchantPlan.Premium;
+    }
+    
+    public void DowngradeToBasic()
+    {
+        Plan = MerchantPlan.Basic;
     }
     
     public static Result<Merchant> Create(string merchantId, string name, string email, string passwordHash)
@@ -62,3 +91,4 @@ public class Merchant
         IsActive = false;
     }
 }
+

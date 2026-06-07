@@ -15,6 +15,7 @@ using Application.Common.Interfaces;
 using Microsoft.OpenApi.Models;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
+using WebApi.RateLimiters;
 var builder = WebApplication.CreateBuilder(args);
 
 // Agregar capas
@@ -63,6 +64,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 
 builder.Services.AddControllers();
+builder.Services.AddSingleton<MerchantRateLimiter>();
 builder.Services.AddSwaggerGen();
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -130,12 +132,10 @@ app.UseSerilogRequestLogging(options =>
     options.GetLevel = (httpContext, elapsed, ex) => 
         httpContext.Response.StatusCode >= 500 ? LogEventLevel.Error : LogEventLevel.Information;
 });
-
-app.UseMiddleware<RateLimitingMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseAuthorization();
+app.UseMiddleware<MerchantRateLimitingMiddleware>();
 app.MapControllers();
 app.MapHealthChecks("/health");
 
