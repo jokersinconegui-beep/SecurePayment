@@ -12,12 +12,15 @@ public class ProcessPaymentCommandHandler : IRequestHandler<ProcessPaymentComman
 {
     private readonly ILogger<ProcessPaymentCommandHandler> _logger;
     private readonly IPaymentRepository _paymentRepository;
+    private readonly IMetricsService _metrics;
 
     public ProcessPaymentCommandHandler(
         ILogger<ProcessPaymentCommandHandler> logger,
+        IMetricsService metrics,
         IPaymentRepository paymentRepository)
     {
         _logger = logger;
+        _metrics = metrics;
         _paymentRepository = paymentRepository;
     }
 
@@ -108,6 +111,10 @@ public class ProcessPaymentCommandHandler : IRequestHandler<ProcessPaymentComman
             await _paymentRepository.SaveAsync(transactionResult.Value, cancellationToken);
 
             stopwatch.Stop();
+            // ✅ Registrar métricas de éxito
+            _metrics.RecordPaymentProcessed(request.MerchantId, "success", (double)request.Amount);
+            _metrics.RecordPaymentDuration(request.MerchantId, stopwatch.ElapsedMilliseconds);
+
             _logger.LogInformation("Payment approved for merchant {MerchantId}, TransactionId: {TransactionId}, Amount: {Amount}, Time: {Elapsed}ms",
                 request.MerchantId, transactionResult.Value.Id, request.Amount, stopwatch.ElapsedMilliseconds);
 
@@ -123,6 +130,9 @@ public class ProcessPaymentCommandHandler : IRequestHandler<ProcessPaymentComman
         catch (Exception ex)
         {
             stopwatch.Stop();
+            // ✅ Registrar métricas de error
+            _metrics.RecordPaymentProcessed(request.MerchantId, "error", 0);
+            _metrics.RecordPaymentDuration(request.MerchantId, stopwatch.ElapsedMilliseconds);
             _logger.LogError(ex, "Unexpected error processing payment for merchant {MerchantId}, Amount: {Amount}, Time: {Elapsed}ms",
                 request.MerchantId, request.Amount, stopwatch.ElapsedMilliseconds);
 
