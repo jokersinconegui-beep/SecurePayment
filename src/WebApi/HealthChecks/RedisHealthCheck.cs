@@ -1,29 +1,35 @@
 // src/WebApi/HealthChecks/RedisHealthCheck.cs
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 using StackExchange.Redis;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace WebApi.HealthChecks;
 
 public class RedisHealthCheck : IHealthCheck
 {
     private readonly IConnectionMultiplexer _redis;
-    
-    public RedisHealthCheck(IConnectionMultiplexer redis)
+    private readonly ILogger<RedisHealthCheck> _logger;
+
+    public RedisHealthCheck(IConnectionMultiplexer redis, ILogger<RedisHealthCheck> logger)
     {
         _redis = redis;
+        _logger = logger;
     }
-    
-    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken)
+
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var db = _redis.GetDatabase();
-            await db.PingAsync();
-            return HealthCheckResult.Healthy("Redis is responding");
+            var ping = await db.PingAsync();
+            
+            return HealthCheckResult.Healthy($"Redis responded in {ping.TotalMilliseconds:F2}ms");
         }
         catch (Exception ex)
         {
-            return HealthCheckResult.Unhealthy("Redis is not responding", ex);
+            _logger.LogWarning(ex, "Redis health check failed");
+            return HealthCheckResult.Degraded("Redis is not responding", ex);
         }
     }
 }

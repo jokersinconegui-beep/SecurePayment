@@ -12,13 +12,17 @@ using Microsoft.OpenApi.Models;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
 using WebApi.RateLimiters;
+using WebApi.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using StackExchange.Redis;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Agregar capas
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddPrometheusMetrics();  // ✅ Nuevo nombre, sin ambigüedad
+builder.Services.AddPrometheusMetrics();  // Métricas desde Infrastructure
 
 // Configurar Serilog
 Log.Logger = new LoggerConfiguration()
@@ -67,6 +71,21 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddEndpointsApiExplorer();
 
+// Configurar Redis (si está disponible, opcional)
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
+try
+{
+    var redis = ConnectionMultiplexer.Connect(redisConnectionString);
+    builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+    Log.Information("✅ Redis connected successfully");
+}
+catch (Exception ex)
+{
+    Log.Warning($"⚠️ Redis not available: {ex.Message}. Continuing without Redis cache.");
+    // builder.Services.AddSingleton<IConnectionMultiplexer>(null!);
+}
+
+// Configurar Swagger con JWT
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo 
@@ -101,17 +120,34 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Health Checks
+
+// Health Checks avanzados (después de builder.Services)
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<ApplicationDbContext>("database");
+    .AddCheck<DatabaseHealthCheck>("database", tags: ["ready", "live"])
+    .AddCheck<MemoryHealthCheck>("memory", tags: ["ready"])
+    .AddDiskStorageHealthCheck(setup =>
+    {
+        setup.AddDrive(Path.GetPathRoot(Directory.GetCurrentDirectory()) ?? "C:\\", 
+            minimumFreeMegabytes: 1024);
+    }, tags: ["ready"]);
+
+// Registrar Redis health check por separado después de Build
+
+// Configurar opciones de health checks
+builder.Services.Configure<HealthCheckPublisherOptions>(options =>
+{
+    options.Delay = TimeSpan.FromSeconds(2);
+    options.Predicate = _ => true;
+});
 
 var app = builder.Build();
 
-// Crear base de datos
+// Crear base de datos automáticamente
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     dbContext.Database.EnsureCreated();
+    Log.Information("✅ Database ensured created");
 }
 
 if (app.Environment.IsDevelopment())
@@ -120,9 +156,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// ✅ Configurar métricas con nuevo nombre
+// Configurar métricas
 app.UsePrometheusMetrics();
 
+// Middleware de logging de requests
 app.UseSerilogRequestLogging(options =>
 {
     options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0}ms";
@@ -135,6 +172,46 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<MerchantRateLimitingMiddleware>();
 app.MapControllers();
-app.MapHealthChecks("/health");
+
+// ✅ Health Check endpoints
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = healthCheck => healthCheck.Tags.Contains("live"),
+    ResponseWriter = WriteHealthCheckResponse
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = healthCheck => healthCheck.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthCheckResponse
+});
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = WriteHealthCheckResponse
+});
 
 app.Run();
+
+// Función auxiliar para formatear respuesta JSON de health checks
+static Task WriteHealthCheckResponse(HttpContext context, HealthReport report)
+{
+    context.Response.ContentType = "application/json";
+    
+    var result = new
+    {
+        status = report.Status.ToString(),
+        checks = report.Entries.Select(e => new
+        {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            description = e.Value.Description,
+            duration = e.Value.Duration.TotalMilliseconds,
+            data = e.Value.Data
+        }),
+        totalDuration = report.TotalDuration.TotalMilliseconds,
+        timestamp = DateTime.UtcNow
+    };
+    
+    return context.Response.WriteAsJsonAsync(result);
+}
